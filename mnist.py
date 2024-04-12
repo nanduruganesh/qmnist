@@ -40,8 +40,8 @@ from torchquantum.plugin import (
 
 from torchquantum.dataset import MNIST, NoisyMNIST
 from torch.optim.lr_scheduler import CosineAnnealingLR
-import sys
-import os
+
+import os, json, datetime
 
 
 class QFCModel(tq.QuantumModule):
@@ -138,6 +138,8 @@ class QFCModel(tq.QuantumModule):
 
         return x
 
+def timestamp():
+    return datetime.datetime.now().strftime("%Y_%m_%dTH_%M_%S")
 
 def train(dataflow, model, device, optimizer):
     for feed_dict in dataflow["train"]:
@@ -177,6 +179,8 @@ def valid_test(dataflow, split, model, device, qiskit=False):
     print(f"{split} set accuracy: {accuracy}")
     print(f"{split} set loss: {loss}")
 
+    return {split: {'accuracy': accuracy, 'loss': loss}}
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -202,8 +206,16 @@ def main():
     parser.add_argument(
         "--model_name", type=str, default="QNN", help="Name of model to use, for now either QNN or just ClassicalNN"
     )
+    parser.add_argument(
+        "--save_to", type=str, default=f"runs/{timestamp()}", help="Path to save experiment results. This script will create the path if it doesn't exist."
+    )
+    parser.add_argument(
+        "--api_key", type=str, default="", help="Path to api key if using IBMQ"
+    )
 
     args = parser.parse_args()
+    if not os.path.exists(args.save_to):
+        os.makedirs(args.save_to, exist_ok=True)
 
     args.noise *= args.mult_noise_by
 
@@ -243,14 +255,15 @@ def main():
 
     if args.model_name == "QNN":
         model = QFCModel().to(device)
-    elif args.model_name == "ClassicalNN":
-        model = ClasicalNN(n_classes=len(digits_of_interest)).to(device)
+    #elif args.model_name == "ClassicalNN":
+        #model = ClasicalNN(n_classes=len(digits_of_interest)).to(device)
     else:
         raise ValueError(f"{args.model_name} not supported yet please add.")
 
     n_epochs = args.epochs
     optimizer = optim.Adam(model.parameters(), lr=5e-3, weight_decay=1e-4)
     scheduler = CosineAnnealingLR(optimizer, T_max=n_epochs)
+    results = {'noise': args.noise, 'epochs': args.epochs, 'model': args.model_name}
 
     if args.static:
         # optionally to switch to the static mode, which can bring speedup
@@ -264,11 +277,24 @@ def main():
         print(optimizer.param_groups[0]["lr"])
 
         # valid
-        valid_test(dataflow, "valid", model, device)
+        results.update(valid_test(dataflow, "valid", model, device))
         scheduler.step()
 
     # test
-    valid_test(dataflow, "test", model, device, qiskit=False)
+    results.update(valid_test(dataflow, "test", model, device, qiskit=False))
+
+    results_path = args.save_to + '/results.json'
+
+    all_results = []
+    if os.path.exists(results_path):
+        with open(results_path) as f:
+            try:
+                all_results = json.load(f)
+            except: pass # If file is improper ignore it
+
+    all_results.append(results)
+    with open(results_path, 'w') as f:
+        json.dump(all_results, f, indent=3)
 
     if args.qiskit_simulation:
         # run on Qiskit simulator and real Quantum Computers
@@ -276,11 +302,10 @@ def main():
             from qiskit import IBMQ
             from torchquantum.plugin import QiskitProcessor
         
-            api_key_path = "api_key.txt"
-            if not os.path.exists(api_key_path):
-                raise Exception("Add your api key and provide its filepath in mnist.py:252")
-            api_key = open(api_key_path).read()
-            #IBMQ.save_account(api_key)
+            if not os.path.exists(args.api_key):
+                raise Exception("provide api key filepath in command line args")
+            api_key = open(args.api_key).read()
+            IBMQ.save_account(api_key)
 
             # firstly perform simulate
             print(f"\nTest with Qiskit Simulator")
