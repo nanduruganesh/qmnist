@@ -30,116 +30,14 @@ import random
 import numpy as np
 import os
 
-import torchquantum as tq
-from torchquantum.plugin import (
-    tq2qiskit_measurement,
-    qiskit_assemble_circs,
-    op_history2qiskit,
-    op_history2qiskit_expand_params,
-)
-
 from torchquantum.dataset import MNIST, NoisyMNIST
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
 import os, json, datetime
-
-
-class QFCModel(tq.QuantumModule):
-    class QLayer(tq.QuantumModule):
-        def __init__(self):
-            super().__init__()
-            self.n_wires = 4
-            self.random_layer = tq.RandomLayer(
-                n_ops=50, wires=list(range(self.n_wires))
-            )
-
-            # gates with trainable parameters
-            self.rx0 = tq.RX(has_params=True, trainable=True)
-            self.ry0 = tq.RY(has_params=True, trainable=True)
-            self.rz0 = tq.RZ(has_params=True, trainable=True)
-            self.crx0 = tq.CRX(has_params=True, trainable=True)
-
-        def forward(self, qdev: tq.QuantumDevice):
-            self.random_layer(qdev)
-
-            # some trainable gates (instantiated ahead of time)
-            self.rx0(qdev, wires=0)
-            self.ry0(qdev, wires=1)
-            self.rz0(qdev, wires=3)
-            self.crx0(qdev, wires=[0, 2])
-
-            # add some more non-parameterized gates (add on-the-fly)
-            qdev.h(wires=3)  # type: ignore
-            qdev.sx(wires=2)  # type: ignore
-            qdev.cnot(wires=[3, 0])  # type: ignore
-            qdev.rx(
-                wires=1,
-                params=torch.tensor([0.1]),
-                static=self.static_mode,
-                parent_graph=self.graph,
-            )  # type: ignore
-
-    def __init__(self):
-        super().__init__()
-        self.n_wires = 4
-        self.encoder = tq.GeneralEncoder(tq.encoder_op_list_name_dict["4x4_u3_h_rx"])
-
-        self.q_layer = self.QLayer()
-        self.measure = tq.MeasureAll(tq.PauliZ)
-
-    def forward(self, x, use_qiskit=False):
-        qdev = tq.QuantumDevice(
-            n_wires=self.n_wires, bsz=x.shape[0], device=x.device, record_op=True
-        )
-
-        bsz = x.shape[0]
-        x = F.avg_pool2d(x, 6).view(bsz, 16)
-        devi = x.device
-
-        if use_qiskit:
-            # use qiskit to process the circuit
-            # create the qiskit circuit for encoder
-            self.encoder(qdev, x)  
-            op_history_parameterized = qdev.op_history
-            qdev.reset_op_history()
-            encoder_circs = op_history2qiskit_expand_params(self.n_wires, op_history_parameterized, bsz=bsz)
-
-            # create the qiskit circuit for trainable quantum layers
-            self.q_layer(qdev)
-            op_history_fixed = qdev.op_history
-            qdev.reset_op_history()
-            q_layer_circ = op_history2qiskit(self.n_wires, op_history_fixed)
-
-            # create the qiskit circuit for measurement
-            measurement_circ = tq2qiskit_measurement(qdev, self.measure)
-
-            # assemble the encoder, trainable quantum layers, and measurement circuits
-            assembled_circs = qiskit_assemble_circs(
-                encoder_circs, q_layer_circ, measurement_circ
-            )
-
-            # call the qiskit processor to process the circuit
-            x0 = self.qiskit_processor.process_ready_circs(qdev, assembled_circs).to(  # type: ignore
-                devi
-            )
-            x = x0
-
-        else:
-            # use torchquantum to process the circuit
-            self.encoder(qdev, x)
-            qdev.reset_op_history()
-            self.q_layer(qdev)
-            x = self.measure(qdev)
-
-        # x = x.reshape(bsz, 2, 2).sum(-1).squeeze()
-        x = x.reshape(bsz, 4)
-            
-        x = F.log_softmax(x, dim=1)
-
-        return x
+from models import QFCModel, EightQNN
 
 def timestamp():
-    return datetime.datetime.now().strftime("%Y_%m_%dTH_%M_%S")
+    return datetime.datetime.now().strftime("%Y_%m_%dT%H_%M_%S")
 
 def train(dataflow, model, device, optimizer):
     for feed_dict in dataflow["train"]:
@@ -204,7 +102,7 @@ def main():
         "--mult-noise-by", type=float, default=1, help="multiply noise by this number"
     )
     parser.add_argument(
-        "--model_name", type=str, default="QNN", help="Name of model to use, for now either QNN or just ClassicalNN"
+        "--model_name", type=str, default="QNN", help="Name of model to use, for now either QNN, EightQubitNN or just ClassicalNN"
     )
     parser.add_argument(
         "--save_to", type=str, default=f"runs/{timestamp()}", help="Path to save experiment results. This script will create the path if it doesn't exist."
@@ -257,6 +155,8 @@ def main():
         model = QFCModel().to(device)
     #elif args.model_name == "ClassicalNN":
         #model = ClasicalNN(n_classes=len(digits_of_interest)).to(device)
+    elif args.model_name == "EightQNN":
+        model = EightQNN().to(device)
     else:
         raise ValueError(f"{args.model_name} not supported yet please add.")
 
@@ -264,6 +164,8 @@ def main():
     optimizer = optim.Adam(model.parameters(), lr=5e-3, weight_decay=1e-4)
     scheduler = CosineAnnealingLR(optimizer, T_max=n_epochs)
     results = {'noise': args.noise, 'epochs': args.epochs, 'model': args.model_name}
+    results['valid'] = {'accuracy': 0}
+    accuracy_decreasing = False
 
     if args.static:
         # optionally to switch to the static mode, which can bring speedup
@@ -277,7 +179,15 @@ def main():
         print(optimizer.param_groups[0]["lr"])
 
         # valid
+        old_accuracy = results['valid']['accuracy']
         results.update(valid_test(dataflow, "valid", model, device))
+        new_accuracy = results['valid']['accuracy']
+
+        if accuracy_decreasing and new_accuracy < old_accuracy:
+            print("Accuracy decreased twice, stopping training")
+            break
+        accuracy_decreasing = (new_accuracy < old_accuracy)
+
         scheduler.step()
 
     # test
