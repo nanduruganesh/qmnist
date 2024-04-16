@@ -34,7 +34,7 @@ from torchquantum.dataset import MNIST, NoisyMNIST
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
 import os, json, datetime
-from models import QFCModel, EightQNN, TwentyQNN
+from models import QFCModel, EightQNN, TwentyQNN, LayeredQNN
 
 def timestamp():
     return datetime.datetime.now().strftime("%Y_%m_%dT%H_%M_%S")
@@ -110,6 +110,9 @@ def main():
     parser.add_argument(
         "--api_key", type=str, default="", help="Path to api key if using IBMQ"
     )
+    parser.add_argument(
+        "--exit_early", type=bool, default=True, help="Stop training early if accuracy drops twice"
+    )
 
     args = parser.parse_args()
     if not os.path.exists(args.save_to):
@@ -159,6 +162,8 @@ def main():
         model = EightQNN().to(device)
     elif args.model_name == "TwentyQNN":
         model = TwentyQNN().to(device)
+    elif args.model_name == "LayeredQNN":
+        model = LayeredQNN().to(device)
     else:
         raise ValueError(f"{args.model_name} not supported yet please add.")
 
@@ -186,7 +191,7 @@ def main():
         new_accuracy = results['valid']['accuracy']
 
         
-        if epoch > 10 and accuracy_decreasing and new_accuracy < old_accuracy:
+        if args.exit_early and epoch > 10 and accuracy_decreasing and new_accuracy < old_accuracy:
             print("Accuracy decreased twice, stopping training")
             break
         accuracy_decreasing = (new_accuracy < old_accuracy)

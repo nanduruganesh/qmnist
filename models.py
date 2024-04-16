@@ -248,6 +248,7 @@ class TwentyQNN(tq.QuantumModule):
         )
 
         self.q_layer = self.TwentyQLayer(self.n_wires)
+        
         self.measure = tq.MeasureAll(tq.PauliZ)
 
     def forward(self, x, use_qiskit=False):
@@ -257,11 +258,8 @@ class TwentyQNN(tq.QuantumModule):
 
         #x.shape is equal to [256,1,28,28]
         bsz = x.shape[0]
-        print(x.shape)
         x = F.avg_pool2d(x, kernel_size=9, stride=2)
-        print(x.shape)
         x = x.view(bsz, -1)
-        print(x.shape)
         devi = x.device
 
         if use_qiskit:
@@ -299,10 +297,68 @@ class TwentyQNN(tq.QuantumModule):
             self.q_layer(qdev)
             x = self.measure(qdev)
 
-        print(x.shape)
        #x = x.sum(-1).squeeze()
         x = x.reshape(bsz, 10)
-        print(x.shape)
+            
+        x = F.log_softmax(x, dim=1)
+
+        return x
+
+class LayeredQNN(tq.QuantumModule):
+    class QLayer(tq.QuantumModule):
+        def __init__(self, n_wires):
+            super().__init__()
+            self.n_wires = n_wires
+            self.random_layer = tq.RandomLayer(
+                n_ops=50, wires=list(range(self.n_wires))
+            )
+
+            # gates with trainable parameters
+            for i in range(self.n_wires):
+                exec(f"self.rx{i} = tq.RX(has_params=True, trainable=True)")
+
+        def forward(self, qdev: tq.QuantumDevice):
+            self.random_layer(qdev)
+
+            # some trainable gates (instantiated ahead of time)
+            for i in range(self.n_wires):
+                exec(f"self.rx{i}(qdev,wires={i})")
+
+    def __init__(self):
+        super().__init__()
+        self.n_wires = 10
+        
+        self.encoder = tq.GeneralEncoder( 
+            [   {'input_idx': [i], 'func': 'rx', 'wires': [i]} for i in range(self.n_wires) ]
+        )
+
+        #self.q_layer = self.QLayer(self.n_wires)
+        for i in range(10):
+            exec(f"self.q_layer{i} = self.QLayer(self.n_wires)")
+        
+        self.measure = tq.MeasureAll(tq.PauliZ)
+
+    def forward(self, x, use_qiskit=False):
+        qdev = tq.QuantumDevice(
+            n_wires=self.n_wires, bsz=x.shape[0], device=x.device, record_op=True
+        )
+
+        #x.shape is equal to [256,1,28,28]
+        bsz = x.shape[0]
+        x = F.avg_pool2d(x, kernel_size=9, stride=2)
+        x = x.view(bsz, -1)
+        devi = x.device
+
+        self.encoder(qdev, x)
+        qdev.reset_op_history()
+        #self.q_layer(qdev)
+        for i in range(10):
+            exec(f"self.q_layer{i}(qdev)")
+
+        x = self.measure(qdev)
+
+       #x = x.sum(-1).squeeze()
+        x = x.reshape(bsz, 10)
             
         x = F.log_softmax(x, dim=1)
 
