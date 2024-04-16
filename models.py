@@ -57,7 +57,9 @@ class QFCModel(tq.QuantumModule):
         )
 
         bsz = x.shape[0]
+        print(x.shape)
         x = F.avg_pool2d(x, 6).view(bsz, 16)
+        print(x.shape)
         devi = x.device
 
         if use_qiskit:
@@ -258,7 +260,7 @@ class TwentyQNN(tq.QuantumModule):
         print(x.shape)
         x = F.avg_pool2d(x, kernel_size=9, stride=2)
         print(x.shape)
-        x = x.reshape(bsz, 10)
+        x = x.view(bsz, -1)
         print(x.shape)
         devi = x.device
 
@@ -297,8 +299,10 @@ class TwentyQNN(tq.QuantumModule):
             self.q_layer(qdev)
             x = self.measure(qdev)
 
-        x = x.sum(-1).squeeze()
-        # x = x.reshape(bsz, 4)
+        print(x.shape)
+       #x = x.sum(-1).squeeze()
+        x = x.reshape(bsz, 10)
+        print(x.shape)
             
         x = F.log_softmax(x, dim=1)
 

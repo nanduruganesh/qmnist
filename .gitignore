@@ -2,3 +2,4 @@ mnist_data
 runs
 __pycache__
 logs
+api_key.txt
