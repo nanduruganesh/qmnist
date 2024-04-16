@@ -29,6 +29,7 @@ import argparse
 import random
 import numpy as np
 import os
+from tqdm import tqdm
 
 from torchquantum.dataset import MNIST, NoisyMNIST
 from torch.optim.lr_scheduler import CosineAnnealingLR
@@ -36,11 +37,14 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 import os, json, datetime
 from models import QFCModel, EightQNN, TwentyQNN, LayeredQNN
 
+from classical_models import ClassicalNN
+
 def timestamp():
     return datetime.datetime.now().strftime("%Y_%m_%dT%H_%M_%S")
 
 def train(dataflow, model, device, optimizer):
-    for feed_dict in dataflow["train"]:
+    pbar = tqdm(dataflow["train"], desc="Training Progress")
+    for feed_dict in pbar:
         inputs = feed_dict["image"].to(device)
         targets = feed_dict["digit"].to(device)
 
@@ -49,7 +53,7 @@ def train(dataflow, model, device, optimizer):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        print(f"loss: {loss.item()}", end="\r")
+        pbar.set_description(f"Training Progress - Loss: {loss.item():.4f}")
 
 
 def valid_test(dataflow, split, model, device, qiskit=False):
@@ -156,8 +160,8 @@ def main():
 
     if args.model_name == "QNN":
         model = QFCModel().to(device)
-    #elif args.model_name == "ClassicalNN":
-        #model = ClasicalNN(n_classes=len(digits_of_interest)).to(device)
+    elif args.model_name == "ClassicalNN":
+        model = ClassicalNN(n_classes=len(digits_of_interest)).to(device)
     elif args.model_name == "EightQNN":
         model = EightQNN().to(device)
     elif args.model_name == "TwentyQNN":
