@@ -6,7 +6,7 @@
 #SBATCH -p standard
 #SBATCH -N 1
 #SBATCH --cpus-per-task=10
-#SBATCH --output=logs/noise-%a.log
+#SBATCH --output=logs/%A-noise-%a.log
 #SBATCH -J official_runs
 
 module purge
@@ -14,6 +14,7 @@ module purge
 module load anaconda
 
 conda deactivate
-conda activate /project/CollabRoboGroup/bae9wk/tq
+conda activate /project/CollabRoboGroup/bae9wk/qmnist
 
-python examples/mnist/mnist.py --epochs=1 --noise=${SLURM_ARRAY_TASK_ID} --mult-noise-by=0.5 --save_to=runs/test
+mkdir -p logs
+python mnist.py --epochs=50 --noise=${SLURM_ARRAY_TASK_ID} --model_name=EightQNN --mult-noise-by=0.5 --save_to=runs/8bit_1

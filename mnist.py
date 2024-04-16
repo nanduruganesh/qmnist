@@ -34,7 +34,7 @@ from torchquantum.dataset import MNIST, NoisyMNIST
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
 import os, json, datetime
-from models import QFCModel, EightQNN
+from models import QFCModel, EightQNN, TwentyQNN
 
 def timestamp():
     return datetime.datetime.now().strftime("%Y_%m_%dT%H_%M_%S")
@@ -128,7 +128,7 @@ def main():
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    digits_of_interest = [1,3,5,9]
+    digits_of_interest = list(range(10))
     dataset = NoisyMNIST(
         root="./mnist_data",
         train_valid_split_ratio=[0.9, 0.1],
@@ -157,13 +157,15 @@ def main():
         #model = ClasicalNN(n_classes=len(digits_of_interest)).to(device)
     elif args.model_name == "EightQNN":
         model = EightQNN().to(device)
+    elif args.model_name == "TwentyQNN":
+        model = TwentyQNN().to(device)
     else:
         raise ValueError(f"{args.model_name} not supported yet please add.")
 
     n_epochs = args.epochs
     optimizer = optim.Adam(model.parameters(), lr=5e-3, weight_decay=1e-4)
     scheduler = CosineAnnealingLR(optimizer, T_max=n_epochs)
-    results = {'noise': args.noise, 'epochs': args.epochs, 'model': args.model_name}
+    results = {'noise': args.noise, 'epochs': args.epochs, 'model_name': args.model_name}
     results['valid'] = {'accuracy': 0}
     accuracy_decreasing = False
 
@@ -183,7 +185,8 @@ def main():
         results.update(valid_test(dataflow, "valid", model, device))
         new_accuracy = results['valid']['accuracy']
 
-        if accuracy_decreasing and new_accuracy < old_accuracy:
+        
+        if epoch > 10 and accuracy_decreasing and new_accuracy < old_accuracy:
             print("Accuracy decreased twice, stopping training")
             break
         accuracy_decreasing = (new_accuracy < old_accuracy)
@@ -193,8 +196,15 @@ def main():
     # test
     results.update(valid_test(dataflow, "test", model, device, qiskit=False))
 
-    results_path = args.save_to + '/results.json'
+    model_id = os.urandom(5).hex() + '.pt'
+    while model_id in os.listdir(args.save_to):
+        model_id = os.urandom(5).hex() + '.pt'
+    
+    model_path = args.save_to + '/' + model_id
+    torch.save(model, model_path)
 
+    results['saved_model'] = model_id
+    results_path = args.save_to + '/results.json'
     all_results = []
     if os.path.exists(results_path):
         with open(results_path) as f:
@@ -205,6 +215,7 @@ def main():
     all_results.append(results)
     with open(results_path, 'w') as f:
         json.dump(all_results, f, indent=3)
+    
 
     if args.qiskit_simulation:
         # run on Qiskit simulator and real Quantum Computers

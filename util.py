@@ -1,5 +1,9 @@
-def generate_csv():
-    return
+import jsons
+def generate_csv(path):
+    results = None
+    with open(path + '/results.json') as f:
+        results = json.load(f)
+    return results
 
 def generate_overlay():
     from torchquantum.dataset import NoisyMNISTDataset
