@@ -34,7 +34,7 @@ from torchquantum.dataset import MNIST, NoisyMNIST
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
 import os, json, datetime
-from models import QFCModel, EightQNN, TwentyQNN, LayeredQNN
+from models import *
 
 def timestamp():
     return datetime.datetime.now().strftime("%Y_%m_%dT%H_%M_%S")
@@ -164,6 +164,8 @@ def main():
         model = TwentyQNN().to(device)
     elif args.model_name == "LayeredQNN":
         model = LayeredQNN().to(device)
+    elif args.model_name == "HybridQNN":
+        model = HybridQNN().to(device)
     else:
         raise ValueError(f"{args.model_name} not supported yet please add.")
 
