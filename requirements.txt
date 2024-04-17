@@ -1,1 +1,2 @@
 torchquantum @ git+https://github.com/gnanduru1/torchquantum.git
+wandb==0.16.6

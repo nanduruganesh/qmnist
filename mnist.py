@@ -30,6 +30,7 @@ import random
 import numpy as np
 import os
 from tqdm import tqdm
+import wandb
 
 from torchquantum.dataset import MNIST, NoisyMNIST
 from torch.optim.lr_scheduler import CosineAnnealingLR
@@ -54,6 +55,7 @@ def train(dataflow, model, device, optimizer):
         loss.backward()
         optimizer.step()
         pbar.set_description(f"Training Progress - Loss: {loss.item():.4f}")
+        wandb.log({"Training Loss": loss.item()})
 
 
 def valid_test(dataflow, split, model, device, qiskit=False):
@@ -126,6 +128,9 @@ def main():
 
     print(args)
 
+
+    wandb.init(project="QMNIST", group=args.save_to, name=f"{args.model_name}_{args.noise}")
+
     if args.pdb:
         import pdb
 
@@ -173,6 +178,7 @@ def main():
     else:
         raise ValueError(f"{args.model_name} not supported yet please add.")
 
+    wandb.watch(model, log_freq=1)
     n_epochs = args.epochs
     optimizer = optim.Adam(model.parameters(), lr=5e-3, weight_decay=1e-4)
     scheduler = CosineAnnealingLR(optimizer, T_max=n_epochs)
@@ -195,6 +201,8 @@ def main():
         old_accuracy = results['valid']['accuracy']
         results.update(valid_test(dataflow, "valid", model, device))
         new_accuracy = results['valid']['accuracy']
+        wandb.log({"Validation Loss": results['valid']['loss']})
+        wandb.log({"Validation Accuracy": results['valid']['accuracy']})
 
         
         if args.exit_early and epoch > 10 and accuracy_decreasing and new_accuracy < old_accuracy:
