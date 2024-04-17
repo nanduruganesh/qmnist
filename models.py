@@ -387,10 +387,10 @@ class HybridQNN(tq.QuantumModule):
             for i in range(self.n_wires):
                 exec(f"self.rx{i}(qdev,wires={i})")
 
-    def __init__(self):
+    def __init__(self, n_wires, q_layers):
         super().__init__()
-        self.n_wires = 10
-        self.q_layers = 2
+        self.n_wires = n_wires
+        self.q_layers = q_layers
         
         self.encoder = tq.GeneralEncoder( 
             [   {'input_idx': [i], 'func': 'rx', 'wires': [i]} for i in range(self.n_wires) ]
@@ -400,11 +400,11 @@ class HybridQNN(tq.QuantumModule):
         for i in range(self.q_layers):
             exec(f"self.q_layer{i} = self.QLayer(self.n_wires)")
 
-        self.linear = nn.Linear(16, 50)
+        self.linear = nn.Linear(16, 10)
         self.act = nn.ReLU()
 
-        self.linear2 = nn.Linear(50, 10)
-        self.act2 = nn.ReLU()
+        # self.linear2 = nn.Linear(50, 10)
+        # self.act2 = nn.ReLU()
 
         self.linear3 = nn.Linear(10, 10)
         #self.act3 = nn.ReLu()
@@ -423,8 +423,8 @@ class HybridQNN(tq.QuantumModule):
 
         x = self.linear(x)
         x = self.act(x)
-        x = self.linear2(x)
-        x = self.act2(x)
+        # x = self.linear2(x)
+        # x = self.act2(x)
 
         devi = x.device
 
