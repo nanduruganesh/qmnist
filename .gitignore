@@ -1,5 +1,7 @@
 mnist_data
 runs
 __pycache__
-logs
+logs/*
 api_key.txt
+runs/*
+wandb/*
