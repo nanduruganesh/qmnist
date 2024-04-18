@@ -403,11 +403,11 @@ class HybridQNN(tq.QuantumModule):
         for i in range(self.q_layers):
             exec(f"self.q_layer{i} = self.QLayer(self.n_wires, self.func)")
 
-        self.linear = nn.Linear(16, 50)
+        self.linear = nn.Linear(16, 10)
         self.act = nn.ReLU()
 
-        self.linear2 = nn.Linear(50, 10)
-        self.act2 = nn.ReLU()
+        # self.linear2 = nn.Linear(50, 10)
+        # self.act2 = nn.ReLU()
 
         self.linear3 = nn.Linear(10, 10)
         #self.act3 = nn.ReLu()
@@ -426,8 +426,8 @@ class HybridQNN(tq.QuantumModule):
 
         x = self.linear(x)
         x = self.act(x)
-        x = self.linear2(x)
-        x = self.act2(x)
+        # x = self.linear2(x)
+        # x = self.act2(x)
 
         devi = x.device
 

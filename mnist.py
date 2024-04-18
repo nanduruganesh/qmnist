@@ -102,9 +102,14 @@ def main():
     parser.add_argument(
         "--noise", type=float, default=0, help="std. dev of gaussian noise"
     )
-
-    # FOR SLURM ARRAY HELP
     parser.add_argument(
+        "--n_wires", type=int, default=10, help="number of wires in QNN components"
+    )
+    parser.add_argument(
+        "--q_layers", type=int, default=5, help="number of quantum layers"
+    )
+    
+    parser.add_argument( # for slurm array
         "--mult-noise-by", type=float, default=1, help="multiply noise by this number"
     )
     parser.add_argument(
@@ -117,7 +122,7 @@ def main():
         "--api_key", type=str, default="", help="Path to api key if using IBMQ"
     )
     parser.add_argument(
-        "--exit_early", type=bool, default=True, help="Stop training early if accuracy drops twice"
+        "--early_stopping", type=bool, default=True, help="Stop training early if accuracy drops twice"
     )
     parser.add_argument(
         "--group", type=str, default="", help="Name of wandb group to save to"
@@ -134,7 +139,7 @@ def main():
     print(args)
 
 
-    wandb.init(project="QMNIST", group=args.group, name=f"{args.model_name}_{args.noise}")
+    wandb.init(project="QMNIST", group=args.group, name=f"{args.model_name}_noise:{args.noise}_n_wires:{args.n_wires}_q_layers:{args.q_layers}")
 
     if args.pdb:
         import pdb
@@ -179,7 +184,7 @@ def main():
     elif args.model_name == "LayeredQNN":
         model = LayeredQNN().to(device)
     elif args.model_name == "HybridQNN":
-        model = HybridQNN().to(device)
+        model = HybridQNN(n_wires = args.n_wires, q_layers = args.q_layers).to(device)
     else:
         raise ValueError(f"{args.model_name} not supported yet please add.")
 
@@ -210,7 +215,7 @@ def main():
         wandb.log({"Validation Accuracy": results['valid']['accuracy']})
 
         
-        if args.exit_early and epoch > 10 and accuracy_decreasing and new_accuracy < old_accuracy:
+        if args.early_stopping and epoch > 10 and accuracy_decreasing and new_accuracy < old_accuracy:
             print("Accuracy decreased twice, stopping training")
             break
         accuracy_decreasing = (new_accuracy < old_accuracy)
@@ -219,6 +224,8 @@ def main():
 
     # test
     results.update(valid_test(dataflow, "test", model, device, qiskit=False))
+    wandb.log({"Test Loss": results['test']['loss']})
+    wandb.log({"Test Accuracy": results['test']['accuracy']})
 
     model_id = os.urandom(5).hex() + '.pt'
     while model_id in os.listdir(args.save_to):
