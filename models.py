@@ -327,16 +327,17 @@ class LayeredQNN(tq.QuantumModule):
             for i in range(self.n_wires):
                 exec(f"self.rx{i}(qdev,wires={i})")
 
-    def __init__(self):
+    def __init__(self, n_wires, q_layers):
         super().__init__()
-        self.n_wires = 16
+        self.n_wires = n_wires
+        self.q_layers = q_layers
         
         self.encoder = tq.GeneralEncoder( 
             [   {'input_idx': [i], 'func': 'rx', 'wires': [i]} for i in range(self.n_wires) ]
         )
 
         #self.q_layer = self.QLayer(self.n_wires)
-        for i in range(self.n_wires):
+        for i in range(self.q_layers):
             exec(f"self.q_layer{i} = self.QLayer(self.n_wires)")
         
         self.measure = tq.MeasureAll(tq.PauliZ)

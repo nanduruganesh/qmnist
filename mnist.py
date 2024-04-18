@@ -108,6 +108,9 @@ def main():
     parser.add_argument(
         "--q_layers", type=int, default=5, help="number of quantum layers"
     )
+    parser.add_argument(
+        "--classical_layers", type=int, default=2, help="number of classical layers"
+    )
     
     parser.add_argument( # for slurm array
         "--mult-noise-by", type=float, default=1, help="multiply noise by this number"
@@ -137,9 +140,12 @@ def main():
         args.group = args.save_to
 
     print(args)
+    if "classical" in args.model_name:
+        wandb_run_name = f"{args.model_name}_noise:{args.noise}_n_layers:{args.classical_layers}"
+    else:
+        wandb_run_name = f"{args.model_name}_noise:{args.noise}_n_wires:{args.n_wires}_q_layers:{args.q_layers}"
 
-
-    wandb.init(project="QMNIST", group=args.group, name=f"{args.model_name}_noise:{args.noise}_n_wires:{args.n_wires}_q_layers:{args.q_layers}")
+    wandb.init(project="QMNIST", group=args.group, name=wandb_run_name)
 
     if args.pdb:
         import pdb
@@ -176,13 +182,13 @@ def main():
     if args.model_name == "QNN":
         model = QFCModel().to(device)
     elif args.model_name == "ClassicalNN":
-        model = ClassicalNN(n_classes=len(digits_of_interest)).to(device)
+        model = ClassicalNN(n_classes=len(digits_of_interest), n_middle_layers = args.classical_layers).to(device)
     elif args.model_name == "EightQNN":
         model = EightQNN().to(device)
     elif args.model_name == "TwentyQNN":
         model = TwentyQNN().to(device)
     elif args.model_name == "LayeredQNN":
-        model = LayeredQNN().to(device)
+        model = LayeredQNN(n_wires = args.n_wires, q_layers = args.q_layers).to(device)
     elif args.model_name == "HybridQNN":
         model = HybridQNN(n_wires = args.n_wires, q_layers = args.q_layers).to(device)
     else:
