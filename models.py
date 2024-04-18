@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+# 2 bit classification
 class QFCModel(tq.QuantumModule):
     class QLayer(tq.QuantumModule):
         def __init__(self):
@@ -105,6 +106,7 @@ class QFCModel(tq.QuantumModule):
 
         return x
 
+# 4 bit classification
 class EightQNN(tq.QuantumModule):
     class EightQLayer(tq.QuantumModule):
         def __init__(self):
@@ -369,36 +371,37 @@ class LayeredQNN(tq.QuantumModule):
 
 class HybridQNN(tq.QuantumModule):
     class QLayer(tq.QuantumModule):
-        def __init__(self, n_wires):
+        def __init__(self, n_wires, func):
             super().__init__()
             self.n_wires = n_wires
             self.random_layer = tq.RandomLayer(
                 n_ops=50, wires=list(range(self.n_wires))
             )
-
+            self.func = func
             # gates with trainable parameters
             for i in range(self.n_wires):
-                exec(f"self.rx{i} = tq.RX(has_params=True, trainable=True)")
+                exec(f"self.{func}{i} = tq.{func.upper()}(has_params=True, trainable=True)")
 
         def forward(self, qdev: tq.QuantumDevice):
             self.random_layer(qdev)
 
             # some trainable gates (instantiated ahead of time)
             for i in range(self.n_wires):
-                exec(f"self.rx{i}(qdev,wires={i})")
+                exec(f"self.u1{i}(qdev,wires={i})")
 
-    def __init__(self):
+    def __init__(self, n_wires=10, q_layers=2, func='rx'):
         super().__init__()
-        self.n_wires = 10
-        self.q_layers = 2
+        self.n_wires = n_wires
+        self.q_layers = q_layers
+        self.func = func
         
         self.encoder = tq.GeneralEncoder( 
-            [   {'input_idx': [i], 'func': 'rx', 'wires': [i]} for i in range(self.n_wires) ]
+           [   {'input_idx': [i], 'func': self.func, 'wires': [i]} for i in range(self.n_wires) ]
         )
 
         #self.q_layer = self.QLayer(self.n_wires)
         for i in range(self.q_layers):
-            exec(f"self.q_layer{i} = self.QLayer(self.n_wires)")
+            exec(f"self.q_layer{i} = self.QLayer(self.n_wires, self.func)")
 
         self.linear = nn.Linear(16, 50)
         self.act = nn.ReLU()
@@ -430,7 +433,7 @@ class HybridQNN(tq.QuantumModule):
 
         self.encoder(qdev, x)
         qdev.reset_op_history()
-        #self.q_layer(qdev)
+        
         for i in range(self.q_layers):
             exec(f"self.q_layer{i}(qdev)")
 

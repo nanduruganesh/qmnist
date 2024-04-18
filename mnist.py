@@ -119,17 +119,22 @@ def main():
     parser.add_argument(
         "--exit_early", type=bool, default=True, help="Stop training early if accuracy drops twice"
     )
+    parser.add_argument(
+        "--group", type=str, default="", help="Name of wandb group to save to"
+    )
 
     args = parser.parse_args()
     if not os.path.exists(args.save_to):
         os.makedirs(args.save_to, exist_ok=True)
 
     args.noise *= args.mult_noise_by
+    if not args.group:
+        args.group = args.save_to
 
     print(args)
 
 
-    wandb.init(project="QMNIST", group=args.save_to, name=f"{args.model_name}_{args.noise}")
+    wandb.init(project="QMNIST", group=args.group, name=f"{args.model_name}_{args.noise}")
 
     if args.pdb:
         import pdb

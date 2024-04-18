@@ -17,4 +17,5 @@ conda deactivate
 conda activate /project/CollabRoboGroup/bae9wk/qmnist
 
 mkdir -p logs
-python mnist.py --epochs=50 --noise=${SLURM_ARRAY_TASK_ID} --model_name=HybridQNN --mult-noise-by=0.5 --save_to=runs/hybrid2
+#python mnist.py --epochs=50 --model_name=TwentyQNN --mult-noise-by=0.5 --save_to=runs/test --group=test
+python mnist.py --epochs=50 --noise=${SLURM_ARRAY_TASK_ID} --model_name=TwentyQNN --mult-noise-by=0.5 --save_to=runs/hybrid2
