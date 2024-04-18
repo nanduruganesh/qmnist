@@ -108,7 +108,9 @@ def main():
     parser.add_argument(
         "--q_layers", type=int, default=5, help="number of quantum layers"
     )
-    
+    parser.add_argument(
+        "--func", type=str, default='rx', help="quantum gate to run in layers"
+    )
     parser.add_argument( # for slurm array
         "--mult-noise-by", type=float, default=1, help="multiply noise by this number"
     )
@@ -139,7 +141,7 @@ def main():
     print(args)
 
 
-    wandb.init(project="QMNIST", group=args.group, name=f"{args.model_name}_noise:{args.noise}_n_wires:{args.n_wires}_q_layers:{args.q_layers}")
+    wandb.init(project="QMNIST", group=args.group, name=f"{args.model_name}_noise:{args.noise}_n_wires:{args.n_wires}_q_layers:{args.q_layers}_func:{args.func}")
 
     if args.pdb:
         import pdb
@@ -184,7 +186,7 @@ def main():
     elif args.model_name == "LayeredQNN":
         model = LayeredQNN().to(device)
     elif args.model_name == "HybridQNN":
-        model = HybridQNN(n_wires = args.n_wires, q_layers = args.q_layers).to(device)
+        model = HybridQNN(n_wires = args.n_wires, q_layers = args.q_layers, func=args.func).to(device)
     else:
         raise ValueError(f"{args.model_name} not supported yet please add.")
 

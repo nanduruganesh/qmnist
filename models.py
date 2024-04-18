@@ -379,17 +379,19 @@ class HybridQNN(tq.QuantumModule):
             )
             self.func = func
             # gates with trainable parameters
+            # Example evaluation of this line: self.rx4 = tq.RX(has_params=True, trainable=True)
             for i in range(self.n_wires):
-                exec(f"self.{func}{i} = tq.{func.upper()}(has_params=True, trainable=True)")
+                exec(f"self.{self.func}{i} = tq.{func.upper()}(has_params=True, trainable=True)")
 
         def forward(self, qdev: tq.QuantumDevice):
             self.random_layer(qdev)
 
             # some trainable gates (instantiated ahead of time)
             for i in range(self.n_wires):
-                exec(f"self.u1{i}(qdev,wires={i})")
+                # Example evaluation of this line: self.rx4(qdev, wires=4)
+                exec(f"self.{self.func}{i}(qdev,wires={i})")
 
-    def __init__(self, n_wires=10, q_layers=2, func='rx'):
+    def __init__(self, n_wires, q_layers, func='rx'):
         super().__init__()
         self.n_wires = n_wires
         self.q_layers = q_layers
@@ -399,15 +401,14 @@ class HybridQNN(tq.QuantumModule):
            [   {'input_idx': [i], 'func': self.func, 'wires': [i]} for i in range(self.n_wires) ]
         )
 
-        #self.q_layer = self.QLayer(self.n_wires)
         for i in range(self.q_layers):
             exec(f"self.q_layer{i} = self.QLayer(self.n_wires, self.func)")
 
-        self.linear = nn.Linear(16, 10)
+        self.linear = nn.Linear(16, 50)
         self.act = nn.ReLU()
 
-        # self.linear2 = nn.Linear(50, 10)
-        # self.act2 = nn.ReLU()
+        self.linear2 = nn.Linear(50, 10)
+        self.act2 = nn.ReLU()
 
         self.linear3 = nn.Linear(10, 10)
         #self.act3 = nn.ReLu()
@@ -426,8 +427,8 @@ class HybridQNN(tq.QuantumModule):
 
         x = self.linear(x)
         x = self.act(x)
-        # x = self.linear2(x)
-        # x = self.act2(x)
+        x = self.linear2(x)
+        x = self.act2(x)
 
         devi = x.device
 

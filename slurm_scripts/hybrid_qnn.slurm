@@ -17,4 +17,7 @@ conda deactivate
 conda activate /home/$(whoami)/.conda/envs/qmnist
 
 mkdir -p logs
-python mnist.py --epochs=50 --noise=${SLURM_ARRAY_TASK_ID} --model_name=HybridQNN --mult-noise-by=0.5 --save_to=runs/hybrid2 --q_layers 8 --n_wires 10
+#python mnist.py --epochs=50 --model_name=HybridQNN --save_to=runs/test --group=test --q_layers 2 --n_wires 10 --func rx
+
+python mnist.py --epochs=50 --noise=${SLURM_ARRAY_TASK_ID} --model_name=HybridQNN --mult-noise-by=0.5 \ 
+--save_to=runs/hybrid2 --q_layers=2 --n_wires=10 --func=rx
