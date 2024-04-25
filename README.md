@@ -25,3 +25,9 @@ pip install -r requirements.txt
 - --noise: **(float)** std. deviation of noise added to images, default 0 which means no noise
 - --model_name: **(string)** the name of the model to run, default is "QNN":
     - "ClassicalNN" is also supported
+
+## Generate visuals
+
+The utils folder contains files to visualize the results. Here is an example generated plot based on our results:
+
+![alt text](util/plot.png)
