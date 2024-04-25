@@ -356,7 +356,7 @@ class LayeredQNN(tq.QuantumModule):
         self.encoder(qdev, x)
         qdev.reset_op_history()
         #self.q_layer(qdev)
-        for i in range(3):
+        for i in range(self.q_layers):
             exec(f"self.q_layer{i}(qdev)")
 
         x = self.measure(qdev)
@@ -411,7 +411,7 @@ class HybridQNN(tq.QuantumModule):
         self.linear2 = nn.Linear(50, 10)
         self.act2 = nn.ReLU()
 
-        self.linear3 = nn.Linear(10, 10)
+        self.linear3 = nn.Linear(self.n_wires, 10)
         #self.act3 = nn.ReLu()
         
         self.measure = tq.MeasureAll(tq.PauliZ)
