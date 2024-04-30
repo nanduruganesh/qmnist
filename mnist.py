@@ -132,6 +132,15 @@ def main():
     parser.add_argument(
         "--group", type=str, default="", help="Name of wandb group to save to"
     )
+    parser.add_argument(
+        "--seed", type=int, default=0, help="Random seed"
+    )
+    parser.add_argument(
+        "--wandb_name", type=str, default="", help="Overwrites the WandB model name"
+    )
+    parser.add_argument(
+        "--no_noise_training", type=bool, default=False, help="Enables noiseless training, and noise is only added to test set"
+    )
 
     args = parser.parse_args()
     if not os.path.exists(args.save_to):
@@ -146,6 +155,8 @@ def main():
         wandb_run_name = f"{args.model_name}_noise:{args.noise}_n_layers:{args.classical_layers}"
     else:
         wandb_run_name = f"{args.model_name}_noise:{args.noise}_n_wires:{args.n_wires}_q_layers:{args.q_layers}_func:{args.func}"
+    if args.wandb_name:
+        wandb_run_name = args.wandb_name
 
     wandb.init(project="QMNIST", group=args.group, name=wandb_run_name)
 
@@ -154,10 +165,13 @@ def main():
 
         pdb.set_trace()
 
-    seed = 0
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
+    if args.no_noise_training:
+        test_noise = args.noise
+        args.noise = 0
+
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
     digits_of_interest = list(range(10))
     dataset = NoisyMNIST(
         root="./mnist_data",
@@ -231,6 +245,26 @@ def main():
         scheduler.step()
 
     # test
+    if args.no_noise_training:
+        dataset = NoisyMNIST(
+            root="./mnist_data",
+            train_valid_split_ratio=[0.9, 0.1],
+            digits_of_interest=digits_of_interest,
+            n_test_samples=75,
+            std_dev=test_noise,
+        )
+        for split in ["test"]:
+            sampler = torch.utils.data.RandomSampler(dataset[split])
+            dataflow[split] = torch.utils.data.DataLoader(
+                dataset[split],
+                batch_size=256,
+                sampler=sampler,
+                num_workers=8,
+                pin_memory=True,
+            )
+
+    print(args.noise)
+    print(test_noise)
     results.update(valid_test(dataflow, "test", model, device, qiskit=False))
     wandb.log({"Test Loss": results['test']['loss']})
     wandb.log({"Test Accuracy": results['test']['accuracy']})
