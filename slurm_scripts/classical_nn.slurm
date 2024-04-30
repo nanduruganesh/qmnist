@@ -14,7 +14,8 @@ module purge
 module load anaconda
 
 conda deactivate
-conda activate /home/$(whoami)/.conda/envs/qmnist
+# conda activate /home/$(whoami)/.conda/envs/qmnist
+conda activate qmnist
 
 mkdir -p logs
 python mnist.py --epochs=50 --noise=${SLURM_ARRAY_TASK_ID} --model_name=ClassicalNN --mult-noise-by=0.5 --save_to=runs/hybrid2 --classical_layers=2

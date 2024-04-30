@@ -14,7 +14,8 @@ module purge
 module load anaconda
 
 conda deactivate
-conda activate /home/$(whoami)/.conda/envs/qmnist
+# conda activate /home/$(whoami)/.conda/envs/qmnist
+conda activate qmnist
 
 mkdir -p logs
 #python mnist.py --epochs=50 --model_name=HybridQNN --save_to=runs/test --group=test --q_layers 2 --n_wires 10 --func rx
